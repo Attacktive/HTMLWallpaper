@@ -23,11 +23,44 @@ import QtWebEngine 1.7
 import org.kde.plasma.plasmoid
 
 WallpaperItem {
-    WebEngineView{
+    id: root
+    property bool loadedOk: false
+    property url targetUrl: wallpaper.configuration.DisplayPage
+
+    WebEngineView {
+        id: web
         anchors.fill: parent
-        url: wallpaper.configuration.DisplayPage
+        url: root.targetUrl
         zoomFactor: wallpaper.configuration.ZoomFactor
         backgroundColor: "black"
+
+        onLoadingChanged: function(loadRequest) {
+            switch (loadRequest.status) {
+                case WebEngineView.LoadSucceededStatus: {
+                    const requestedUrl = loadRequest.url.toString()
+                    if (requestedUrl.includes("error://")) {
+                        root.loadedOk = false
+                        if (!retryTimer.running) {
+                            retryTimer.start()
+                        }
+                    } else {
+                        root.loadedOk = true
+                        retryTimer.stop()
+                    }
+                }
+
+                break
+                case WebEngineView.LoadFailedStatus:
+                case WebEngineView.LoadStoppedStatus:
+                    root.loadedOk = false
+                    if (!retryTimer.running) {
+                        retryTimer.start()
+                    }
+
+                break
+            }
+        }
+
         onCertificateError: function (error) {
             if (wallpaper.configuration.InsecureHTTPS) {
                 error.acceptCertificate()
@@ -35,6 +68,20 @@ WallpaperItem {
                 error.rejectCertificate()
             }
         }
+
         settings.playbackRequiresUserGesture: false
+    }
+
+    Timer {
+        id: retryTimer
+        interval: 5000
+        repeat: true
+        running: false
+        onTriggered: {
+            if (!root.loadedOk && !web.loading) {
+                web.url = root.targetUrl
+                web.reload()
+            }
+        }
     }
 }
