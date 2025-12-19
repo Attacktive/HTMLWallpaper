@@ -35,28 +35,32 @@ WallpaperItem {
         backgroundColor: "black"
 
         onLoadingChanged: function(loadRequest) {
+            const startRetry = () => {
+                root.loadedOk = false
+                if (!retryTimer.running) {
+                    retryTimer.start()
+                }
+            }
+
+            const stopRetry = () => {
+                root.loadedOk = true
+                retryTimer.stop()
+            }
+
             switch (loadRequest.status) {
                 case WebEngineView.LoadSucceededStatus: {
                     const requestedUrl = loadRequest.url.toString()
                     if (requestedUrl.includes("error://")) {
-                        root.loadedOk = false
-                        if (!retryTimer.running) {
-                            retryTimer.start()
-                        }
+                        startRetry()
                     } else {
-                        root.loadedOk = true
-                        retryTimer.stop()
+                        stopRetry()
                     }
                 }
 
                 break
                 case WebEngineView.LoadFailedStatus:
                 case WebEngineView.LoadStoppedStatus:
-                    root.loadedOk = false
-                    if (!retryTimer.running) {
-                        retryTimer.start()
-                    }
-
+                    startRetry()
                 break
             }
         }
